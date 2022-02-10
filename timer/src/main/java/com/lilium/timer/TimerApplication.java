@@ -8,7 +8,6 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
 //@ImportResource("classpath:Spring-Quartz.xml")
-@ComponentScan
 @EnableScheduling
 public class TimerApplication {
 
