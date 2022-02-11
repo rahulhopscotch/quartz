@@ -1,9 +1,13 @@
 package com.lilium.timer.jobs;
 
-import org.quartz.*;
+import java.sql.Timestamp;
+import org.quartz.DisallowConcurrentExecution;
+import org.quartz.Job;
+import org.quartz.JobExecutionContext;
+import org.quartz.JobExecutionException;
+import org.quartz.PersistJobDataAfterExecution;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.scheduling.quartz.QuartzJobBean;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -11,18 +15,14 @@ import org.springframework.stereotype.Component;
 @DisallowConcurrentExecution
 public class JobB implements Job {
     Logger logger = LoggerFactory.getLogger(getClass());
-   /* @Override
-    protected void executeInternal(JobExecutionContext context) throws JobExecutionException {
-
-
-
-    }*/
 
     @Override
     public void execute(JobExecutionContext context) throws JobExecutionException {
-        logger.info("Job ** {} ** fired @ {}", context.getJobDetail().getKey().getName(), context.getFireTime());
+        logger.info("Job ** {} with ID : {} ** fired @ {}", context.getJobDetail().getKey().getName(),
+                context.getJobDetail().getJobDataMap().get("ID"), new Timestamp(System.currentTimeMillis()));
         try {
-            Thread.sleep(10000);
+            Thread.sleep(5000);
+            logger.info("Job ** {} ** fire finish @ {}", context.getJobDetail().getKey().getName(), new Timestamp(System.currentTimeMillis()));
         } catch (InterruptedException e) {
             e.printStackTrace();
         }

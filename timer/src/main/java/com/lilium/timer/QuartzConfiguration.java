@@ -1,12 +1,17 @@
 package com.lilium.timer;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 import javax.annotation.PostConstruct;
 import javax.sql.DataSource;
-
-import com.lilium.timer.config.AutoWiringSpringBeanJobFactory;
-import com.lilium.timer.jobs.JobA;
-import com.lilium.timer.jobs.JobB;
-import org.quartz.*;
+import org.quartz.CronTrigger;
+import org.quartz.JobDataMap;
+import org.quartz.JobDetail;
+import org.quartz.JobKey;
+import org.quartz.SimpleTrigger;
+import org.quartz.Trigger;
+import org.quartz.impl.JobDetailImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,13 +25,17 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
-import org.springframework.scheduling.quartz.*;
+import org.springframework.scheduling.quartz.CronTriggerFactoryBean;
+import org.springframework.scheduling.quartz.SchedulerFactoryBean;
+import org.springframework.scheduling.quartz.SimpleTriggerFactoryBean;
+import org.springframework.scheduling.quartz.SpringBeanJobFactory;
+import com.lilium.timer.config.AutoWiringSpringBeanJobFactory;
+import com.lilium.timer.jobs.JobB;
 
 @Configuration
 @EnableAutoConfiguration
-@ConditionalOnExpression("'${using.spring.schedulerFactory}'=='true'")
+@ConditionalOnExpression ("'${using.spring.schedulerFactory}'=='true'")
 public class QuartzConfiguration {
-
     Logger logger = LoggerFactory.getLogger(getClass());
 
     @Autowired
@@ -41,18 +50,16 @@ public class QuartzConfiguration {
     public SpringBeanJobFactory springBeanJobFactory() {
         AutoWiringSpringBeanJobFactory jobFactory = new AutoWiringSpringBeanJobFactory();
         logger.debug("Configuring Job factory");
-
         jobFactory.setApplicationContext(applicationContext);
         return jobFactory;
     }
 
     @Bean
-    public SchedulerFactoryBean scheduler(Trigger trigger, @Qualifier("sampleJobDetail") JobDetail job, DataSource quartzDataSource) throws SchedulerException {
-
+    public SchedulerFactoryBean scheduler(Trigger trigger, @Qualifier ("sampleJobDetail") JobDetail job, DataSource quartzDataSource) {
         SchedulerFactoryBean schedulerFactory = new SchedulerFactoryBean();
         schedulerFactory.setConfigLocation(new ClassPathResource("quartz.properties"));
-
-        logger.debug("Setting the Scheduler up");
+        logger.info("Setting the Scheduler up");
+        schedulerFactory.setOverwriteExistingJobs(false);
         schedulerFactory.setJobFactory(springBeanJobFactory());
         schedulerFactory.setJobDetails(job);
         schedulerFactory.setOverwriteExistingJobs(true);
@@ -64,47 +71,47 @@ public class QuartzConfiguration {
         return schedulerFactory;
     }
 
-    @Bean(name = "sampleJobDetail")
-    public JobDetailFactoryBean jobDetail() {
-
-        JobDetailFactoryBean jobDetailFactory = new JobDetailFactoryBean();
+    @Bean (name = "sampleJobDetail")
+    public JobDetail jobDetail() {
+        JobDetailImpl jobDetailFactory = new JobDetailImpl();
         jobDetailFactory.setJobClass(JobB.class);
         jobDetailFactory.setName("Qrtz_JobB_Detail");
         jobDetailFactory.setDescription("Invoke Sample JobB service...");
         jobDetailFactory.setDurability(true);
+        jobDetailFactory.setRequestsRecovery(true);
+        final Map<String, String> map = new HashMap<>();
+        map.put("ID", UUID.randomUUID().toString());
+        final JobDataMap jobDataMap = new JobDataMap(map);
+        jobDetailFactory.setJobDataMap(jobDataMap);
         return jobDetailFactory;
     }
 
     @Bean
-    public SimpleTriggerFactoryBean simpleTrigger(@Qualifier("sampleJobDetail") JobDetail job) {
-
+    public SimpleTriggerFactoryBean simpleTrigger(@Qualifier ("sampleJobDetail") JobDetail job) {
         SimpleTriggerFactoryBean trigger = new SimpleTriggerFactoryBean();
+        trigger.setMisfireInstruction(SimpleTrigger.MISFIRE_INSTRUCTION_SMART_POLICY);
         trigger.setJobDetail(job);
-
         int frequencyInSec = 10;
         logger.info("Configuring trigger to fire every {} seconds", frequencyInSec);
-
-        trigger.setRepeatInterval(frequencyInSec * 1000);
+        trigger.setRepeatInterval(frequencyInSec * 1000L);
         trigger.setRepeatCount(SimpleTrigger.REPEAT_INDEFINITELY);
         trigger.setName("Qrtz_Trigger");
         return trigger;
     }
 
     @Bean
-    public CronTriggerFactoryBean trigger(@Qualifier("sampleJobDetail") JobDetail job) {
-
+    public CronTriggerFactoryBean trigger(@Qualifier ("sampleJobDetail") JobDetail job) {
         CronTriggerFactoryBean trigger = new CronTriggerFactoryBean();
         trigger.setJobDetail(job);
-        trigger.setMisfireInstruction(CronTrigger.MISFIRE_INSTRUCTION_FIRE_ONCE_NOW);
-        trigger.setCronExpression("0 35 17 * * ?");
+        trigger.setMisfireInstruction(CronTrigger.MISFIRE_INSTRUCTION_SMART_POLICY);
+        trigger.setCronExpression("0 0/1 * 1/1 * ? *");
         trigger.setName("Qrtz_Trigger_New");
         return trigger;
     }
 
-
     @Bean
     @QuartzDataSource
-    @ConfigurationProperties(prefix = "spring.datasource")
+    @ConfigurationProperties (prefix = "spring.datasource")
     public DataSource quartzDataSource() {
         return DataSourceBuilder.create().build();
     }

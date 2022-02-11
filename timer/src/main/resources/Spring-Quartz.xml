@@ -40,6 +40,7 @@
     </bean>
 
     <bean class="org.springframework.scheduling.quartz.SchedulerFactoryBean">
+        <property name="overwriteExistingJobs" value="false"/>
         <property name="triggers">
             <list>
                 <ref bean="cronTriggerJobA" />
